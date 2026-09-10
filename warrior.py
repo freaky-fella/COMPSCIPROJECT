@@ -8,7 +8,7 @@ class Warrior(Player):
 
     def __init__(self, name, x, y):
         super().__init__(name, x, y)
-        self.damage = 20
+        self.damage = 15
         self.max_health = 125
         self.max_health = 125
         self.speed = 8
