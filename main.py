@@ -2,6 +2,7 @@ import pygame
 from warrior import Warrior
 from mage import Mage
 from archer import Archer
+from pickups import PickupManager
 
 CLASS_KEYS = {
     pygame.K_1: ("Warrior", Warrior),
@@ -74,6 +75,49 @@ def draw_hud(surface, p1, p2, font):
         text_surf = font.render(line, True, (255, 255, 255))
         surface.blit(text_surf, (surface.get_width() - text_surf.get_width() - 10, 10 + i * 22))
 
+#Works out who won once somebody drops to zero health. Returns None while both
+#players are still standing
+def find_winner(p1, p2):
+    p1_down = p1.health <= 0
+    p2_down = p2.health <= 0
+    if p1_down and p2_down:
+        return "draw"
+    if p2_down:
+        return p1
+    if p1_down:
+        return p2
+    return None
+
+#Shown once the fight is over. Sticks around until the player quits
+def game_over_screen(screen, clock, title_font, option_font, hud_font, winner, p1, p2):
+    if winner == "draw":
+        headline = "Draw!"
+    else:
+        headline = f"{winner.name} wins!"
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return
+
+        screen.fill((40, 44, 52))
+
+        title_surf = title_font.render(headline, True, (255, 235, 120))
+        screen.blit(title_surf, (screen.get_width() // 2 - title_surf.get_width() // 2, 180))
+
+        for i, player in enumerate((p1, p2)):
+            line = f"{player.name}  -  Score: {player.score}   Level: {player.level}"
+            line_surf = option_font.render(line, True, (220, 220, 220))
+            screen.blit(line_surf, (screen.get_width() // 2 - line_surf.get_width() // 2, 260 + i * 36))
+
+        quit_surf = hud_font.render("Press ESC to quit", True, (160, 160, 160))
+        screen.blit(quit_surf, (screen.get_width() // 2 - quit_surf.get_width() // 2, 360))
+
+        pygame.display.flip()
+        clock.tick(60)
+
 def main():
     pygame.init()
 
@@ -90,6 +134,9 @@ def main():
     p1 = choose_class(screen, clock, title_font, option_font, "Player 1: Choose your class", "Bob", 200, 300)
     p2 = choose_class(screen, clock, title_font, option_font, "Player 2: Choose your class", "Billy", 600, 300)
     p2.facing = -1      #player 2 starts on the right, so they face their opponent
+
+    pickups = PickupManager(screen_width, screen_height)
+    winner = None
 
     running = True
     while running:
@@ -134,10 +181,21 @@ def main():
         p1.updateAttacks(dt, p2)
         p2.updateAttacks(dt, p1)
 
+        # --- Balls: spawn, expire and hand out score or healing ---
+        pickups.update(dt, (p1, p2))
+
+        winner = find_winner(p1, p2)
+        if winner is not None:
+            running = False
+
         screen.fill((40, 44, 52))
+        pickups.draw(screen)
         draw(screen, p1, p2)
         draw_hud(screen, p1, p2, hud_font)
         pygame.display.flip()
+
+    if winner is not None:
+        game_over_screen(screen, clock, title_font, option_font, hud_font, winner, p1, p2)
 
     pygame.quit()
 
